@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -18,10 +20,13 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 import org.testcontainers.containers.DockerComposeContainer;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -34,35 +39,37 @@ import static org.mockito.Mockito.times;
 @ActiveProfiles("test")
 @Testcontainers
 @ContextConfiguration(initializers = StudyServiceTest.ContainerPropertyInitializer.class)
+@DisplayName("TestContainer를 이용한 테스트")
 class StudyServiceTest {
 
+    private static final Logger log = LoggerFactory.getLogger(StudyServiceTest.class);
+
     @Mock
-    MemberService memberService;
+    private MemberService memberService;
 
     @Autowired
-    StudyRepository studyRepository;
+    private StudyRepository studyRepository;
 
     @Value("${container.port}")
-    int port;
+    private int port;
 
     @Container
     static DockerComposeContainer composeContainer =
             new DockerComposeContainer(new File("src/test/resources/docker-compose.yml"))
-                    .withExposedService("study-db", 5432);
+                    .withLogConsumer("study-db", new Slf4jLogConsumer(log))
+                    .withExposedService("study-db", 5432,
+                            Wait.forListeningPort().withStartupTimeout(Duration.ofSeconds(10)));
 
     @DisplayName("Study 객체 생성 테스트")
     @Test
     void createNewStudy() {
-        System.out.println("========");
-        System.out.println(port);
-
         // Given
         StudyService studyService = new StudyService(memberService, studyRepository);
         assertNotNull(studyService);
 
         Member member = new Member();
         member.setId(1L);
-        member.setEmail("keesun@email.com");
+        member.setEmail("seok@email.com");
 
         Study study = new Study(10, "테스트");
 
